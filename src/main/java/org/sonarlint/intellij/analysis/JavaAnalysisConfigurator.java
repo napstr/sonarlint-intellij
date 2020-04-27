@@ -24,6 +24,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.module.EffectiveLanguageLevelUtil;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.roots.CompilerModuleExtension;
+import com.intellij.openapi.roots.DependencyScope;
 import com.intellij.openapi.roots.LibraryOrderEntry;
 import com.intellij.openapi.roots.ModuleOrderEntry;
 import com.intellij.openapi.roots.ModuleRootManager;
@@ -32,21 +33,22 @@ import com.intellij.openapi.roots.OrderRootType;
 import com.intellij.openapi.roots.libraries.Library;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
-import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.jps.model.java.JpsJavaSdkType;
 
+import static java.util.stream.Collectors.joining;
 import static org.sonarlint.intellij.util.SonarLintUtils.isEmpty;
 
 public class JavaAnalysisConfigurator implements AnalysisConfigurator {
@@ -57,7 +59,7 @@ public class JavaAnalysisConfigurator implements AnalysisConfigurator {
   private static final String JAVA_TEST_LIBRARIES_PROPERTY = "sonar.java.test.libraries";
   private static final String JAVA_TEST_BINARIES_PROPERTY = "sonar.java.test.binaries";
 
-  private static final char SEPARATOR = ',';
+  private static final String SEPARATOR = ",";
 
   private static final String JAR_REGEXP = "(.*)!/";
   private static final Pattern JAR_PATTERN = Pattern.compile(JAR_REGEXP);
@@ -115,36 +117,64 @@ public class JavaAnalysisConfigurator implements AnalysisConfigurator {
   }
 
   private static void configureLibraries(Module ijModule, Map<String, String> properties) {
-    List<String> libs = new ArrayList<>();
-    for (VirtualFile f : getProjectClasspath(ijModule)) {
-      libs.add(toFile(f.getPath()));
-    }
+    Set<VirtualFile> libs = new LinkedHashSet<>();
+    Set<VirtualFile> testLibs = new LinkedHashSet<>();
+    collectProjectClasspath(ijModule, libs, testLibs, true, false);
     if (!libs.isEmpty()) {
-      String joinedLibs = StringUtils.join(libs, SEPARATOR);
-      properties.put(JAVA_LIBRARIES_PROPERTY, joinedLibs);
-      // Can't differentiate main and test classpath
-      properties.put(JAVA_TEST_LIBRARIES_PROPERTY, joinedLibs);
+      properties.put(JAVA_LIBRARIES_PROPERTY, joinPaths(libs));
+    }
+    if (!testLibs.isEmpty()) {
+      properties.put(JAVA_TEST_LIBRARIES_PROPERTY, joinPaths(testLibs));
     }
   }
 
-  private static List<VirtualFile> getProjectClasspath(@Nullable final Module module) {
+  @NotNull
+  private static String joinPaths(Collection<VirtualFile> vFiles) {
+    return vFiles.stream()
+      .map(f -> toFile(f.getPath()))
+      .filter(Objects::nonNull)
+      .collect(joining(SEPARATOR));
+  }
+
+  private static void collectProjectClasspath(@Nullable final Module module, Set<VirtualFile> libs, Set<VirtualFile> testLibs, boolean topLevel, boolean testScopeOnly) {
     if (module == null) {
-      return Collections.emptyList();
+      return;
     }
-    final List<VirtualFile> found = new ArrayList<>();
     final ModuleRootManager mrm = ModuleRootManager.getInstance(module);
     final OrderEntry[] orderEntries = mrm.getOrderEntries();
     for (final OrderEntry entry : orderEntries) {
       if (entry instanceof ModuleOrderEntry) {
-        // Add dependent module output dir as library
         Module dependentModule = ((ModuleOrderEntry) entry).getModule();
-        found.addAll(getModuleEntries(dependentModule));
+        // Add dependent module output dir as library
+        final Collection<VirtualFile> moduleOutputs = getDependantModuleCompilerOutput(dependentModule);
+        testLibs.addAll(moduleOutputs);
+        if (!testScopeOnly) {
+          libs.addAll(moduleOutputs);
+        }
+        if (topLevel || ((ModuleOrderEntry) entry).isExported()) {
+          collectProjectClasspath(dependentModule, libs, testLibs, false, testScopeOnly || !isForProduction(((ModuleOrderEntry) entry).getScope()));
+        }
       } else if (entry instanceof LibraryOrderEntry) {
+        if (!topLevel && !((LibraryOrderEntry) entry).isExported()) {
+          continue;
+        }
         Library lib = ((LibraryOrderEntry) entry).getLibrary();
-        found.addAll(getLibraryEntries(lib));
+        if (testScopeOnly || isForTest(((LibraryOrderEntry) entry).getScope())) {
+          testLibs.addAll(getLibraryEntries(lib));
+        }
+        if (!testScopeOnly && isForProduction(((LibraryOrderEntry) entry).getScope())) {
+          libs.addAll(getLibraryEntries(lib));
+        }
       }
     }
-    return found;
+  }
+
+  private static boolean isForProduction(DependencyScope scope) {
+    return scope.isForProductionRuntime() || scope.isForProductionCompile();
+  }
+
+  private static boolean isForTest(DependencyScope scope) {
+    return scope.isForTestRuntime() || scope.isForTestCompile();
   }
 
   private static Collection<VirtualFile> getLibraryEntries(@Nullable Library lib) {
@@ -154,7 +184,7 @@ public class JavaAnalysisConfigurator implements AnalysisConfigurator {
     return Arrays.asList(lib.getFiles(OrderRootType.CLASSES));
   }
 
-  private static Collection<VirtualFile> getModuleEntries(@Nullable Module dependentModule) {
+  private static Collection<VirtualFile> getDependantModuleCompilerOutput(@Nullable Module dependentModule) {
     if (dependentModule == null) {
       return Collections.emptyList();
     }
