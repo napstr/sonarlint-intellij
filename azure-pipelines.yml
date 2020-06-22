@@ -103,7 +103,7 @@ stages:
           cd its
           source utils.sh
           log=~/gradlew-runIdeForUiTests.log
-          xvfb-run --auto-servernum ./gradlew --stacktrace --info -PijVersion=$(IDEA_VERSION) "-PslPluginLocation=$(Agent.BuildDirectory)/staged-plugin/sonarlint-intellij" runIdeForUiTests >$log 2>&1 &
+          nohup xvfb-run --auto-servernum ./gradlew --stacktrace --info -PijVersion=$(IDEA_VERSION) "-PslPluginLocation=$(Agent.BuildDirectory)/staged-plugin/sonarlint-intellij" runIdeForUiTests >$log 2>&1 &
           # $! expands to the PID of the last process executed in the background
           ide_pid=$!
 
@@ -137,4 +137,4 @@ stages:
           cd its
           cat build/idea-sandbox/system/log/idea.log
         displayName: 'Log'
-        condition: succeededOrFailed()
+        condition: always()
