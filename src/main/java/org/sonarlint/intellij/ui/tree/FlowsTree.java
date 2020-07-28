@@ -25,6 +25,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.treeStructure.Tree;
+import java.util.Optional;
 import javax.annotation.CheckForNull;
 import javax.swing.event.TreeExpansionEvent;
 import javax.swing.event.TreeWillExpandListener;
@@ -32,7 +33,10 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.ExpandVetoException;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
+import org.sonarlint.intellij.editor.SonarLintHighlighting;
+import org.sonarlint.intellij.ui.nodes.FlowNode;
 import org.sonarlint.intellij.ui.nodes.LocationNode;
+import org.sonarlint.intellij.util.SonarLintUtils;
 
 public class FlowsTree extends Tree {
   private final Project project;
@@ -51,12 +55,7 @@ public class FlowsTree extends Tree {
       if (e.getSource() != null) {
         TreePath newPath = e.getNewLeadSelectionPath();
         if (newPath != null) {
-          Object o = newPath.getLastPathComponent();
-          if (!(o instanceof LocationNode)) {
-            FlowsTree.this.setSelectionPath(e.getOldLeadSelectionPath());
-          } else {
-            navigateToSelected();
-          }
+          navigateToSelected();
         }
       }
     });
@@ -82,10 +81,19 @@ public class FlowsTree extends Tree {
 
   private void navigateToSelected() {
     DefaultMutableTreeNode node = getSelectedNode();
-    if (!(node instanceof LocationNode)) {
+    if (node == null) {
       return;
     }
-    RangeMarker rangeMarker = ((LocationNode) node).rangeMarker();
+    RangeMarker rangeMarker = null;
+    if(node instanceof FlowNode) {
+      FlowNode flowNode = (FlowNode) node;
+      rangeMarker = flowNode.getFlow().locations().get(0).location();
+      SonarLintHighlighting highlighting = SonarLintUtils.getService(project, SonarLintHighlighting.class);
+      highlighting.highlightIssue(flowNode.getPrimaryLocation(), flowNode.getMessage(), Optional.of(flowNode.getFlow()));
+    } else if(node instanceof LocationNode) {
+      rangeMarker = ((LocationNode) node).rangeMarker();
+    }
+
     if (rangeMarker == null || !rangeMarker.isValid()) {
       return;
     }
