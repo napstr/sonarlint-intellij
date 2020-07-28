@@ -59,18 +59,6 @@ public class FlowsTree extends Tree {
         }
       }
     });
-    TreeWillExpandListener l = new TreeWillExpandListener() {
-      @Override
-      public void treeWillExpand(TreeExpansionEvent event) throws ExpandVetoException {
-        // nothing to do
-      }
-
-      @Override
-      public void treeWillCollapse(TreeExpansionEvent event) throws ExpandVetoException {
-        throw new ExpandVetoException(event);
-      }
-    };
-    addTreeWillExpandListener(l);
   }
 
   public void expandAll() {
