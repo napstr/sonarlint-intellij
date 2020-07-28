@@ -37,10 +37,12 @@ import com.intellij.openapi.util.Segment;
 import com.intellij.ui.HintHint;
 import com.intellij.ui.JBColor;
 import java.awt.Font;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -88,15 +90,17 @@ public class SonarLintHighlighting {
    * @see com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
    * @see com.intellij.codeInsight.highlighting.BraceHighlightingHandler
    */
-  public void highlightFlowsWithHighlightersUtil(RangeMarker rangeMarker, @Nullable String message, List<LiveIssue.Flow> flows) {
+  public void highlightIssue(RangeMarker rangeMarker, @Nullable String message, Optional<LiveIssue.Flow> flowOptional) {
     stopBlinking();
     HighlightInfo primaryInfo = createHighlight(rangeMarker, message);
 
-    List<HighlightInfo> infos = flows.stream()
-      .flatMap(f -> f.locations().stream()
+    List<HighlightInfo> infos = new ArrayList<>();
+    if(flowOptional.isPresent()){
+      infos  = flowOptional.get().locations().stream()
         .filter(Objects::nonNull)
-        .map(l -> createHighlight(l.location(), l.message())))
-      .collect(Collectors.toList());
+        .map(l -> createHighlight(l.location(), l.message()))
+        .collect(Collectors.toList());
+    }
 
     infos.add(primaryInfo);
 
@@ -105,9 +109,10 @@ public class SonarLintHighlighting {
     currentHighlightedDoc = rangeMarker.getDocument();
 
     Editor[] editors = EditorFactory.getInstance().getEditors(rangeMarker.getDocument(), project);
-    List<Segment> segments = Stream.concat(flows.stream()
-        .flatMap(f -> f.locations().stream()
-          .map(LiveIssue.IssueLocation::location)),
+    
+    List<Segment> segments = Stream.concat(flowOptional.map(f -> f.locations().stream()
+      .map(LiveIssue.IssueLocation::location))
+      .orElseGet(Stream::empty),
       Stream.of(rangeMarker)).collect(Collectors.toList());
 
     Arrays.stream(editors).forEach(editor -> {

@@ -56,7 +56,7 @@ public class ShowLocationsIntention implements IntentionAction, LowPriorityActio
 
   @Override public void invoke(@NotNull Project project, Editor editor, PsiFile file) {
     SonarLintHighlighting h = SonarLintUtils.getService(project, SonarLintHighlighting.class);
-    h.highlightFlowsWithHighlightersUtil(primaryLocation, message, flows);
+    h.highlightIssue(primaryLocation, message, flows.stream().findFirst());
   }
 
   @Override public boolean startInWriteAction() {

@@ -39,7 +39,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Optional;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 import javax.swing.Box;
@@ -122,7 +122,7 @@ abstract class AbstractIssuesPanel extends SimpleToolWindowPanel implements Occu
     if (selectedNodes.length > 0) {
       LocationNode node = selectedNodes[0];
       SonarLintHighlighting highlighting = SonarLintUtils.getService(project, SonarLintHighlighting.class);
-      highlighting.highlightFlowsWithHighlightersUtil(node.rangeMarker(), node.message(), Collections.emptyList());
+      highlighting.highlightIssue(node.rangeMarker(), node.message(), Optional.empty());
     }
   }
 
@@ -133,7 +133,7 @@ abstract class AbstractIssuesPanel extends SimpleToolWindowPanel implements Occu
       rulePanel.setRuleKey(issue);
       if (issue.getRange() != null) {
         SonarLintHighlighting highlighting = SonarLintUtils.getService(project, SonarLintHighlighting.class);
-        highlighting.highlightFlowsWithHighlightersUtil(issue.getRange(), issue.getMessage(), issue.flows());
+        highlighting.highlightIssue(issue.getRange(), issue.getMessage(), issue.flows().stream().findFirst());
       }
       flowsTree.getEmptyText().setText("Selected issue doesn't have flows");
       flowsTreeBuilder.setFlows(issue.flows(), issue.getRange(), issue.getMessage());

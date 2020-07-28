@@ -26,6 +26,7 @@ import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import icons.SonarLintIcons;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.swing.Icon;
 import org.sonarlint.intellij.issue.LiveIssue;
@@ -71,11 +72,16 @@ public class IssueNode extends AbstractNode {
       renderer.setToolTipText("Issue is no longer valid");
       renderer.append(issue.getMessage(), SimpleTextAttributes.GRAY_ATTRIBUTES);
     }
-
-    if (!issue.flows().isEmpty()) {
-      int numLocations = issue.flows().stream().mapToInt(f -> f.locations().size()).sum();
-      String flows = String.format(" [+%d %s]", numLocations, SonarLintUtils.pluralize("location", numLocations));
-      renderer.append(flows, GRAYED_SMALL_ATTRIBUTES);
+    List<LiveIssue.Flow> flows = issue.flows();
+    if (!flows.isEmpty()) {
+      String flowsDescription;
+      if (flows.size() == 1 || flows.stream().noneMatch(flow -> flow.locations().size() != 1)) {
+        int numLocations = flows.stream().mapToInt(f -> f.locations().size()).sum();
+        flowsDescription = String.format(" [+%d %s]", numLocations, SonarLintUtils.pluralize("location", numLocations));
+      } else {
+        flowsDescription = String.format(" [+%d flows]", flows.size());
+      }
+      renderer.append(flowsDescription, GRAYED_SMALL_ATTRIBUTES);
     }
 
     if (issue.getCreationDate() != null) {
