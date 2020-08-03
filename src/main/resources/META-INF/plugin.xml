@@ -203,8 +203,19 @@
             <add-to-group group-id="SonarLint.AnalyzeMenu"/>
         </action>
 
+        <action id="SonarLint.JumpToRuleDescription"
+                        class="org.sonarlint.intellij.actions.JumpToRuleDescription"
+                        text="Jump to Rule Description"
+                        description="Jump to rule description"
+                        icon="SonarLintIcons.SONARLINT">
+            <keyboard-shortcut first-keystroke="shift ctrl G" keymap="$default"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="SonarLint.AnalyzeMenu"/>
+        </action>
+
         <group id="SonarLint.ProjectViewPopupMenu" text="SonarLint" popup="true" icon="/images/ico-sonarlint-13.png">
             <reference ref="SonarLint.AnalyzeFiles"/>
+            <reference ref="SonarLint.JumpToRuleDescription"/>
             <action id="SonarLint.Exclude"
                     class="org.sonarlint.intellij.actions.ExcludeFileAction"
                     text="Exclude from SonarLint analysis"
