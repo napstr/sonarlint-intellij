@@ -181,6 +181,8 @@
         <postStartupActivity implementation="org.sonarlint.intellij.BootstrapStartupActivity"/>
         <postStartupActivity implementation="org.sonarlint.intellij.trigger.EditorOpenTrigger"/>
         <projectService serviceImplementation="org.sonarlint.intellij.trigger.SonarLintSubmitter"/>
+
+        <httpRequestHandler implementation="org.sonarlint.intellij.server.MyHttpRequestHandler"/>
     </extensions>
 
     <extensionPoints>
